@@ -17,6 +17,10 @@ public:
 
 vector<Point> GetPointsFromFile();
 vector<Point> VisiblePoints(int num, float angle, float distance);
+float GetStartingAngle(string direction);
+void DisplayVisiblePoints(vector<Point>& visiblePoints);
+void PromptStartAgain();
+bool IsPointVisible(Point givenPoint, Point pointToCheck, float maxDistance, bool rangeCrossesZero, float minAngle, float maxAngle);
 
 int main()
 {
@@ -56,21 +60,20 @@ int main()
 
 	// find and display all of the points visible to the given point
 	vector<Point> visiblePoints = VisiblePoints(givenNum, givenAngle, givenDistance);
+	DisplayVisiblePoints(visiblePoints);
+	PromptStartAgain();
+	return 0;
+}
 
-	cout << "Visible Points: " << endl;
-
-	for (int i = 0; i < visiblePoints.size(); i++)
-	{
-		cout << "(" << visiblePoints[i].x << "," << visiblePoints[i].y << "," << visiblePoints[i].num << "," << visiblePoints[i].direction << ")" << endl;
-	}
-
+void PromptStartAgain()
+{
 	cout << endl;
-	cout << "Try again? (y/n): ";
+	cout << "Try another point? (y/n): ";
 	char tryAgain;
 	cin >> tryAgain;
 	while (tryAgain != 'y' && tryAgain != 'n')
 	{
-		cout << "Invalid input. Try again? (y/n): ";
+		cout << "Invalid input. Try another point? (y/n): ";
 		cin >> tryAgain;
 	}
 
@@ -78,8 +81,16 @@ int main()
 	{
 		main();
 	}
+}
 
-	return 0;
+void DisplayVisiblePoints(vector<Point>& visiblePoints)
+{
+	cout << "Visible Points: " << endl;
+
+	for (int i = 0; i < visiblePoints.size(); i++)
+	{
+		cout << "(" << visiblePoints[i].x << "," << visiblePoints[i].y << "," << visiblePoints[i].num << "," << visiblePoints[i].direction << ")" << endl;
+	}
 }
 
 vector<Point> GetPointsFromFile()
@@ -127,7 +138,7 @@ vector<Point> VisiblePoints(int num, float angle, float distance)
 		return vector<Point>{};
 	}
 
-	// find the point that we are looking for
+	// find the point that the user is interested in
 	Point givenPoint;
 	for (int i = 0; i < points.size(); i++)
 	{
@@ -145,25 +156,8 @@ vector<Point> VisiblePoints(int num, float angle, float distance)
 	}
 
 	// find the starting direction of the given point
-	float startingAngle = 0;
-	//East is 0 degrees, since it lies along the x-axis (arctan(0) = 0)
-	if (givenPoint.direction == "East")
-	{
-		startingAngle = 0;
-	}
-	else if (givenPoint.direction == "North")
-	{
-		startingAngle = 90;
-	}
-	else if (givenPoint.direction == "West")
-	{
-		startingAngle = 180;
-	}
-	else if (givenPoint.direction == "South")
-	{
-		startingAngle = 270;
-	}
-	else
+	float startingAngle = GetStartingAngle(givenPoint.direction);
+	if (startingAngle == -1)
 	{
 		cout << "Error: Invalid direction" << endl;
 		return vector<Point>{};
@@ -186,32 +180,61 @@ vector<Point> VisiblePoints(int num, float angle, float distance)
 			continue;
 		}
 
-		// check distance first using Pythagorus' theorem...
-		float distanceToPoint = sqrt(pow(points[i].x - givenPoint.x, 2) + pow(points[i].y - givenPoint.y, 2));
-		if (distanceToPoint > distance)
-		{
-			continue;
-		}
-
-		// ...then angle using arctangent(dy/dx). Both must be within the given bounds for the point to be visible.
-		float angleToPointRadians = atan2(points[i].y - givenPoint.y, points[i].x - givenPoint.x);
-		float angleToPoint = fmod((angleToPointRadians * 180 / M_PI) + 360, 360);
-
-		if (rangeCrossesZero)
-		{
-			if ((0 <= angleToPoint && angleToPoint <= maxAngle) 
-				|| (minAngle <= angleToPoint && angleToPoint <= 360))
-			{
-				visiblePoints.insert(visiblePoints.begin() + visiblePointsIndex, points[i]);
-				visiblePointsIndex++;
-			}
-		}
-		else if (minAngle <= angleToPoint && angleToPoint <= maxAngle)
-		{
+		 if (IsPointVisible(givenPoint, points[i], distance, rangeCrossesZero, minAngle, maxAngle))
+		 {
 			visiblePoints.insert(visiblePoints.begin() + visiblePointsIndex, points[i]);
 			visiblePointsIndex++;
 		}
 	}
 
 	return visiblePoints;
+}
+
+float GetStartingAngle(string direction)
+{
+	// East is 0 degrees, since it lies along the x-axis (arctan(0) = 0). The angle increases in the counter-clockwise direction.
+	if (direction == "East")
+	{
+		return 0;
+	}
+	else if (direction == "North")
+	{
+		return 90;
+	}
+	else if (direction == "West")
+	{
+		return 180;
+	}
+	else if (direction == "South")
+	{
+		return 270;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+bool IsPointVisible(Point givenPoint, Point pointToCheck, float maxDistance, bool rangeCrossesZero, float minAngle, float maxAngle)
+{
+	// check distance first using Pythagorus' theorem...
+	float distanceToPoint = sqrt(pow(pointToCheck.x - givenPoint.x, 2) + pow(pointToCheck.y - givenPoint.y, 2));
+	if (distanceToPoint > maxDistance)
+	{
+		return false;
+	}
+
+	// ...then angle using arctangent(dy/dx). Both must be within the given bounds for the point to be visible.
+	float angleToPointRadians = atan2(pointToCheck.y - givenPoint.y, pointToCheck.x - givenPoint.x);
+	float angleToPoint = fmod((angleToPointRadians * 180 / M_PI) + 360, 360);
+
+	if (rangeCrossesZero)
+	{
+		return (0 <= angleToPoint && angleToPoint <= maxAngle)
+			|| (minAngle <= angleToPoint && angleToPoint <= 360);
+	}
+	else
+	{
+		return minAngle <= angleToPoint && angleToPoint <= maxAngle;
+	}
 }
